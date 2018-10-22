@@ -8,8 +8,12 @@ class Sql:
         self.db=db
 
     def connect(self):
-        self.con=db.connect(host=self.host,port=self.port,user=self.user,passwd=self.passwd,db=self.db)
-        self.cursor = self.con.cursor()
+        try:
+            self.con=db.connect(host=self.host,port=self.port,user=self.user,passwd=self.passwd,db=self.db)
+            self.cursor = self.con.cursor()
+        except:
+            print("数据库连接失败,请检查用户名密码")
+
     def close(self):
         self.cursor.close()
         self.con.close()

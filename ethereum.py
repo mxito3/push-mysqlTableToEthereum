@@ -2,11 +2,12 @@
 from web3 import Web3, HTTPProvider
 from web3.middleware import geth_poa_middleware
 import time 
+import threading
 class Ethereum(object):
     def __init__(self,coinbase_password,contractAddress,contractAbi):
         self.web3 = Web3(HTTPProvider('http://localhost:8545'))
         self.web3.middleware_stack.inject(geth_poa_middleware, layer=0)
-        assert self.web3.isConnected(),'connect fail'
+        assert self.web3.isConnected(),'connect fail 请打开geth'
         self.ourAddress = self.web3.eth.accounts[0]
         self.ourPassword = coinbase_password
         self.contractAddress = self.web3.toChecksumAddress(contractAddress)
@@ -34,21 +35,28 @@ class Ethereum(object):
                 self.web3.personal.lockAccount(self.ourAddress)
                 self.watingMined(hash)
 
-    def pushData(self,databaseName,tableName,value,index):
-        unlockResult = self.web3.personal.unlockAccount(self.ourAddress, self.ourPassword)
-        if (unlockResult):
-            hash = self.contract.functions.pushData(databaseName,tableName,value,index).transact({'from': self.ourAddress})
-            if (hash):
-                print("在数据库"+databaseName+"的表  "+tableName+"　　中上传数据  "+value+" 的交易成功发起hash值是" + self.web3.toHex(hash))
-                self.web3.personal.lockAccount(self.ourAddress)
+    def pushData(self,databaseName,tableName,values,callback):
+        for index,value in enumerate(values):    
+            unlockResult = self.web3.personal.unlockAccount(self.ourAddress, self.ourPassword)
+            if (unlockResult):
+                hash = self.contract.functions.pushData(databaseName,tableName,value,index).transact({'from': self.ourAddress})
+                if (hash):
+                    print("在数据库"+databaseName+"的表  "+tableName+"　　中上传数据  "+value+" 的交易成功发起hash值是" + self.web3.toHex(hash))
+                    self.web3.personal.lockAccount(self.ourAddress)
+                    #
+                    waitingUpload(self,hash,index,callback).start()
 
-    def watingMined(self,hash):
+    def watingMined(self,hash,type=None,index=None,callback=None):
         print("交易 "+self.web3.toHex(hash)+"  打包中,请稍后...")
         needWaitTime=3
         while self.web3.eth.getTransactionReceipt(hash) is None:
             time.sleep(needWaitTime)
         # callback(self.web3.toHex(hash)+"  交易打包成功")
         print("交易 "+self.web3.toHex(hash)+"  打包成功")
+        # print(index)
+        # print(not callback is None)
+        if not callback is None and not index is None:
+            callback(index)
 
     def getTableLength(self,databaseName,tableName):
         return self.self.contract.functions.getTableLength(databaseName,tableName).call()
@@ -65,11 +73,24 @@ class Ethereum(object):
         return self.contract.functions.getTable(databaseName,tableName,index).call()
     def getTableKeys(self,databaseName,tableName):
         return self.contract.functions.getTableKeys(databaseName,tableName).call()
-    
+
+
+class waitingUpload(threading.Thread):
+    def __init__(self,Ethereum,hash,index,callback):
+        threading.Thread.__init__(self)
+        self.hash=hash
+        self.index=index
+        self.geth=Ethereum
+        self.callback=callback
+    def run(self): 
+        self.geth.watingMined(self.hash,index=self.index,callback=self.callback)
+
+        
+ 
 if __name__ =="__main__":
     coinbasePassword='123456'
     contractAddress='0xaC83B4384f600F5aF2C287b8Ba56d50d5F19d224'
-    contractAbi='[{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"index","type":"uint256"}],"name":"PushData","type":"event"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"}],"name":"createDatabase","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"keys","type":"string"}],"name":"CreateTable","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"}],"name":"CreateDatabase","type":"event"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"keys","type":"string"}],"name":"createTable","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"value","type":"string"},{"name":"index","type":"uint256"}],"name":"pushData","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"}],"name":"existSuchDatabase","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"exsitSuchTable","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"index","type":"uint256"}],"name":"getTable","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableKeys","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableLength","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]'
+    contractAbi='[{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableKeys","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableLength","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"value","type":"string"},{"name":"index","type":"uint256"}],"name":"pushData","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"keys","type":"string"}],"name":"createTable","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"index","type":"uint256"}],"name":"getTable","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"}],"name":"createDatabase","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"}],"name":"existSuchDatabase","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"exsitSuchTable","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"}],"name":"CreateDatabase","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"keys","type":"string"}],"name":"CreateTable","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"index","type":"uint256"}],"name":"PushData","type":"event"}]'
     geth=Ethereum(coinbasePassword,contractAddress,contractAbi)
     db='test2'
     table='test1'

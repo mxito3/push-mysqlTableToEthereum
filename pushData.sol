@@ -17,6 +17,8 @@ contract pushMes
 		uint index; 
 		string value;	
 	}
+
+	
     mapping(string => database)  databases;
     mapping(string => bool)  databaseExist;
     mapping(string => mapping (string => bool))  tableExist;
@@ -52,6 +54,11 @@ contract pushMes
 
 	function pushData(string databaseName,string tableName,string value,uint index) public
 	{
+	    //上传第一个数据的时候清空表内容，避免之前上传过该表
+		if(index == 0)
+		{
+			delete databases[databaseName].tables[tableName].values;
+		}
 		databases[databaseName].tables[tableName].values.push(data(index,value));
 		emit PushData(databaseName,tableName,index);
 	}
