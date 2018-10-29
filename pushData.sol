@@ -54,16 +54,17 @@ contract pushMes
 
 	function pushData(string databaseName,string tableName,string value,uint index) public
 	{
-	    //上传第一个数据的时候清空表内容，避免之前上传过该表
-		if(index == 0)
-		{
-			delete databases[databaseName].tables[tableName].values;
-		}
+	    
 		databases[databaseName].tables[tableName].values.push(data(index,value));
 		emit PushData(databaseName,tableName,index);
 	}
 
-
+	function dropTable (string databaseName,string tableName) public
+	{
+		//清空表内容，避免之前上传过该表
+		delete databases[databaseName].tables[tableName].values;
+	}
+	
 
 	function existSuchDatabase (string databaseName) view public returns(bool)  {
 		if(databaseExist[databaseName])

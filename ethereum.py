@@ -45,6 +45,14 @@ class Ethereum(object):
                     self.web3.personal.lockAccount(self.ourAddress)
                     #
                     waitingUpload(self,hash,index,callback).start()
+    def dropTable(self,databaseName,tableName):
+        unlockResult = self.web3.personal.unlockAccount(self.ourAddress, self.ourPassword)
+        if (unlockResult):
+            hash = self.contract.functions.dropTable(databaseName,tableName).transact({'from': self.ourAddress})
+            if (hash):
+                print("删除已经存在的表"+tableName+"　　的交易发起成功,hash值是" + self.web3.toHex(hash))
+                self.web3.personal.lockAccount(self.ourAddress)
+                self.watingMined(hash)
 
     def watingMined(self,hash,type=None,index=None,callback=None):
         print("交易 "+self.web3.toHex(hash)+"  打包中,请稍后...")
@@ -84,22 +92,3 @@ class waitingUpload(threading.Thread):
         self.callback=callback
     def run(self): 
         self.geth.watingMined(self.hash,index=self.index,callback=self.callback)
-
-        
- 
-if __name__ =="__main__":
-    coinbasePassword='123456'
-    contractAddress='0xaC83B4384f600F5aF2C287b8Ba56d50d5F19d224'
-    contractAbi='[{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableKeys","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"getTableLength","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"value","type":"string"},{"name":"index","type":"uint256"}],"name":"pushData","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"keys","type":"string"}],"name":"createTable","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"},{"name":"index","type":"uint256"}],"name":"getTable","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"databaseName","type":"string"}],"name":"createDatabase","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"}],"name":"existSuchDatabase","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"databaseName","type":"string"},{"name":"tableName","type":"string"}],"name":"exsitSuchTable","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"}],"name":"CreateDatabase","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"keys","type":"string"}],"name":"CreateTable","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"name":"databaseName","type":"string"},{"indexed":false,"name":"tableName","type":"string"},{"indexed":false,"name":"index","type":"uint256"}],"name":"PushData","type":"event"}]'
-    geth=Ethereum(coinbasePassword,contractAddress,contractAbi)
-    db='test2'
-    table='test1'
-    value="hello world2"
-    index=geth.getTableLength(db,table)
-    # print(geth.getContract().__dict__)
-    # geth.createDatabase('test')
-    # geth.createTable('test','test1','key1 key2')
-    print(geth.exsitSuchTable(db,table))
-    # print(geth.existSuchDatabase(db))
-    # geth.pushData(db,table,value,index)
-    # print(geth.getTable(db,table,1))
